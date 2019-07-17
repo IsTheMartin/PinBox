@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="height_numeric_button">60dp</dimen>
+    <dimen name="width_numeric_button">60dp</dimen>
+</resources>
