@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import com.google.android.material.snackbar.Snackbar
 import com.mcuadrada.pinbox.Utils.SharedApp
 import kotlinx.android.synthetic.main.fragment_change_pin.*
@@ -32,7 +33,9 @@ class ChangePinFragment : Fragment(), View.OnClickListener, View.OnLongClickList
 
     private var listener: OnFragmentInteractionListener? = null
     private var currentPin: String = ""
-    //private lateinit var etPin: EditText
+    private var confirmPin: String = ""
+    private var stateMachine: Int = 0
+    private lateinit var tvInstructions: TextView
 
     companion object {
         fun newInstance(): ChangePinFragment {
@@ -45,6 +48,10 @@ class ChangePinFragment : Fragment(), View.OnClickListener, View.OnLongClickList
         savedInstanceState: Bundle?
     ): View? {
         val view: View = inflater.inflate(R.layout.fragment_change_pin, container, false)
+
+        tvInstructions = view.findViewById<TextView>(R.id.tvInstructions)
+
+        initStateMachine()
 
         val btns0 = view.findViewById<Button>(R.id.btn0)
         btns0.setOnClickListener(this)
@@ -84,7 +91,8 @@ class ChangePinFragment : Fragment(), View.OnClickListener, View.OnLongClickList
             }
             else -> {
                 val buttonPressed: Button = p0 as Button
-                val inputNumber: String = buttonPressed.text.split("btn", "ok")[0]
+                val inputNumber: String = buttonPressed.text
+                    .split("btn", "ok")[0]
                 concatNumbers(inputNumber)
             }
         }
@@ -97,6 +105,16 @@ class ChangePinFragment : Fragment(), View.OnClickListener, View.OnLongClickList
             }
         }
         return true
+    }
+
+    private fun initStateMachine(){
+        if(SharedApp.prefs.pin == ""){
+            stateMachine = 1
+            tvInstructions.setText("Ingresa el nuevo pin")
+        } else {
+            stateMachine = 0
+            tvInstructions.setText("Ingresa el pin guardado")
+        }
     }
 
     fun concatNumbers(numeric: String) {
@@ -122,21 +140,65 @@ class ChangePinFragment : Fragment(), View.OnClickListener, View.OnLongClickList
 
     fun savePin(view: View) {
         if (currentPin.length > 3) {
-            SharedApp.prefs.pin = currentPin
-            if(SharedApp.prefs.pin == currentPin){
-                val snacky = Snackbar.make(view, "Pin guardado correctamente",
-                    Snackbar.LENGTH_LONG).setAction("Action",null)
-                val snackyView = snacky.view
-                snackyView.setBackgroundColor(Color.GREEN)
-                snacky.show()
+            when (stateMachine) {
+                0 -> {
+                    if (compareSavedPin()) {
+                        stateMachine++
+                        tvInstructions.setText("Ingresa el nuevo pin")
+                    } else {
+                        showSnacky(view, 0, "El pin no coincide con el almacenado")
+                    }
+                }
+                1 -> {
+                    confirmPin = currentPin
+                    stateMachine++
+                    tvInstructions.setText("Confirma el pin anterior")
+                }
+                2 -> {
+                    if(confirmPins()) {
+                        SharedApp.prefs.pin = currentPin
+                        if (SharedApp.prefs.pin == currentPin) {
+                            showSnacky(view, 1, "Se ha almacenado correctamente el nuevo pin")
+                            etPin.setText("")
+                            stateMachine = 0
+                        } else {
+                            showSnacky(view, 0, "Hubo un error al guardar el nuevo pin")
+                        }
+                    } else {
+                        showSnacky(view, 0, "El pin de confirmación no coincide")
+                    }
+                }
             }
-        } else {
-            val snacky = Snackbar.make(view, "El pin debe tener al menos cuatro dígitos",
-                Snackbar.LENGTH_LONG).setAction("Action",null)
-            val snackyView = snacky.view
-            snackyView.setBackgroundColor(Color.RED)
-            snacky.show()
+        }else {
+            showSnacky(view, 0, "El pin debe ser contener al menos cuatro dígitos")
         }
+        etPin.setText("")
+        currentPin=""
+    }
+
+    private fun compareSavedPin(): Boolean {
+        if (SharedApp.prefs.pin == currentPin) return true
+        return false
+    }
+
+    private fun confirmPins():Boolean{
+        if(confirmPin == currentPin) return true
+        return false
+    }
+
+    private fun showSnacky(view: View, type: Int, message: String) {
+        val snacky = Snackbar.make(view, message, Snackbar.LENGTH_SHORT)
+            .setAction("Action", null)
+        val snackyView = snacky.view
+        when (type) {
+            0 -> { //Danger
+                snackyView.setBackgroundColor(Color.RED)
+            }
+            1 -> { //Successful
+                snackyView.setBackgroundColor(Color.GREEN)
+            }
+        }
+        snacky.show()
     }
 
     // TODO: Rename method, update argument and hook method into UI event
